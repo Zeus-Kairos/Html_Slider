@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Slider - PowerPoint-like Presentation Player</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>HTML Slider</h1>
+            <nav>
+                <button id="create-presentation">Create New Presentation</button>
+                <button id="play-presentation">Play Presentation</button>
+            </nav>
+        </header>
+        
+        <main>
+            <section id="presentation-list">
+                <h2>Presentations</h2>
+                <ul id="presentations"></ul>
+            </section>
+            
+            <section id="page-management">
+                <h2>Page Management</h2>
+                <div id="page-controls">
+                    <button id="add-page">Add Page</button>
+                </div>
+                <ul id="pages"></ul>
+            </section>
+        </main>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Create New Presentation</h2>
+            <form id="create-form">
+                <div class="form-group">
+                    <label for="presentation-name">Presentation Name</label>
+                    <input type="text" id="presentation-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="file-select">Select HTML Files</label>
+                    <input type="file" id="file-select" multiple accept=".html">
+                </div>
+                <button type="submit">Create</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
