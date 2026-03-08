@@ -148,6 +148,22 @@ section h2 {
     background-color: #c82333;
 }
 
+#pages li img {
+    width: 60px;
+    height: 45px;
+    object-fit: cover;
+    margin-right: 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+#pages li img:hover {
+    transform: scale(2);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
 .modal {
     display: none;
     position: fixed;

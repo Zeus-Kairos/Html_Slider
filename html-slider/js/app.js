@@ -243,27 +243,38 @@ class App {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.html';
+        fileInput.multiple = true;
         fileInput.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const dataUrl = e.target.result;
-                    // Create an object with both data URL and file name
-                    const pageData = {
-                        dataUrl: dataUrl,
-                        fileName: file.name
+            const files = e.target.files;
+            if (files.length > 0) {
+                let processedFiles = 0;
+                const pages = db.getPages(this.currentPresentation.id);
+                const baseOrderIndex = pages.length;
+                
+                Array.from(files).forEach((file, index) => {
+                    const reader = new FileReader();
+                    const fileOrderIndex = baseOrderIndex + index;
+                    reader.onload = async (e) => {
+                        const dataUrl = e.target.result;
+                        // Create an object with both data URL and file name
+                        const pageData = {
+                            dataUrl: dataUrl,
+                            fileName: file.name
+                        };
+                        
+                        // Generate thumbnail
+                        const thumbnail = await this.generateThumbnail(dataUrl);
+                        
+                        db.createPage(this.currentPresentation.id, JSON.stringify(pageData), fileOrderIndex, thumbnail);
+                        processedFiles++;
+                        
+                        // When all files are processed
+                        if (processedFiles === files.length) {
+                            this.loadPages(this.currentPresentation.id);
+                        }
                     };
-                    
-                    // Generate thumbnail
-                    const thumbnail = await this.generateThumbnail(dataUrl);
-                    
-                    const pages = db.getPages(this.currentPresentation.id);
-                    const orderIndex = pages.length;
-                    db.createPage(this.currentPresentation.id, JSON.stringify(pageData), orderIndex, thumbnail);
-                    this.loadPages(this.currentPresentation.id);
-                };
-                reader.readAsDataURL(file);
+                    reader.readAsDataURL(file);
+                });
             }
         };
         fileInput.click();
