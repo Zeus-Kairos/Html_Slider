@@ -313,16 +313,11 @@ class App {
         
         // Wait for the window to load before writing content
         playbackWindow.onload = function() {
-            // Update the title
             playbackWindow.document.title = `${this.currentPresentation.name} - Playback`;
-            
-            // Get the presentation container
             const container = playbackWindow.document.getElementById('presentation-container');
-            
-            // Clear existing content
             container.innerHTML = '';
             
-            // --- 替换开始：使用 fetch 解析 Data URL 并注入通信脚本 ---
+            // --- 注入幻灯片内容 ---
             pages.forEach((page, index) => {
                 const pageDiv = playbackWindow.document.createElement('div');
                 pageDiv.className = `page ${index === 0 ? 'active' : ''}`;
@@ -343,31 +338,26 @@ class App {
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
 
-                // 【核心修复】：如果是 data URL，解析它并注入后门脚本
                 if (src.startsWith('data:text/html')) {
                     fetch(src)
-                        .then(res => res.text()) // 将 base64 完美转换为 HTML 文本
+                        .then(res => res.text())
                         .then(html => {
-                            // 注入一段脚本：专门捕获左右键发送给父窗口，放行回车键
                             const injection = `
                                 <script>
                                     window.addEventListener('keydown', function(e) {
                                         if (['ArrowRight', 'ArrowLeft', 'Space'].includes(e.code)) {
                                             e.preventDefault();
                                             e.stopImmediatePropagation();
-                                            // 向父级发送翻页消息
                                             window.parent.postMessage({ type: 'navigate', code: e.code }, '*');
                                         }
-                                        // 注意：这里绝对不拦截 Enter 键，你的页面动画可以正常接收！
                                     }, true);
                                 <\/script>
                             `;
-                            // 使用 srcdoc 渲染，彻底避免跨域访问限制
                             iframe.srcdoc = html + injection;
                         })
                         .catch(err => {
                             console.error("加载幻灯片失败:", err);
-                            iframe.src = src; // 兜底方案
+                            iframe.src = src; 
                         });
                 } else {
                     iframe.src = src;
@@ -376,8 +366,26 @@ class App {
                 pageDiv.appendChild(iframe);
                 container.appendChild(pageDiv);
             });
+
+            // --- 注入控制按钮 (触发区域) ---
+            const controlsArea = playbackWindow.document.createElement('div');
+            controlsArea.id = 'controls-trigger-area';
+            controlsArea.innerHTML = `
+                <button id="btn-restart" class="morandi-glass-btn" title="Restart (reload all pages)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                    </svg>
+                </button>
+                <button id="btn-reload" class="morandi-glass-btn" title="Reload current page">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                    </svg>
+                </button>
+            `;
+            playbackWindow.document.body.appendChild(controlsArea);
             
-            // Add playback logic
+            // --- 注入交互逻辑脚本 ---
             const script = playbackWindow.document.createElement('script');
             script.textContent = `
                 let currentPage = 0;
@@ -393,7 +401,6 @@ class App {
                             page.style.zIndex = "2";
                             page.style.opacity = "1";
                             page.style.pointerEvents = "auto";
-                            // 切换后，主动把焦点交给 iframe，这样直接按 Enter 就能触发动画
                             setTimeout(() => {
                                 const iframe = page.querySelector('iframe');
                                 if (iframe) iframe.focus();
@@ -411,7 +418,7 @@ class App {
                     currentPage = index;
                 }
 
-                // 1. 监听父窗口自身的按键 (处理焦点不在 iframe 时的操作)
+                // 核心控制逻辑
                 window.addEventListener('keydown', (e) => {
                     if (['ArrowRight', 'ArrowLeft', 'Space'].includes(e.code)) {
                         e.preventDefault();
@@ -420,7 +427,6 @@ class App {
                     }
                 }, true);
 
-                // 2. 【核心修复】：监听从 iframe 内部传来的翻页消息
                 window.addEventListener('message', (e) => {
                     if (e.data && e.data.type === 'navigate') {
                         if (e.data.code === 'ArrowLeft') showPage(currentPage - 1);
@@ -428,12 +434,37 @@ class App {
                     }
                 });
 
-                // 初始显示
+                // 辅助函数：硬重载 iframe
+                function reloadIframe(iframe) {
+                    if (!iframe) return;
+                    if (iframe.hasAttribute('srcdoc')) {
+                        const content = iframe.srcdoc;
+                        iframe.srcdoc = ' '; // 触发变更
+                        setTimeout(() => { iframe.srcdoc = content; }, 50);
+                    } else {
+                        const currentSrc = iframe.src;
+                        iframe.src = '';
+                        setTimeout(() => { iframe.src = currentSrc; }, 50);
+                    }
+                }
+
+                // 按钮事件绑定
+                document.getElementById('btn-restart').addEventListener('click', () => {
+                    // 重载所有页面并回到第一页
+                    pages.forEach(page => reloadIframe(page.querySelector('iframe')));
+                    showPage(0);
+                });
+
+                document.getElementById('btn-reload').addEventListener('click', () => {
+                    // 仅重载当前页
+                    reloadIframe(pages[currentPage].querySelector('iframe'));
+                });
+
                 showPage(0);
             `;
-            
             playbackWindow.document.body.appendChild(script);
 
+            // --- 注入样式 (包含莫兰迪磨砂玻璃 UI) ---
             const style = playbackWindow.document.createElement('style');
             style.textContent = `
                 body { margin: 0; background: #000; overflow: hidden; }
@@ -445,10 +476,63 @@ class App {
                     opacity: 0; 
                     pointer-events: none;
                     transition: opacity 0.3s ease-in-out; 
-                    background: #000; /* Prevents white flash */
+                    background: #000; 
                 }
                 .page.active { opacity: 1; z-index: 2; pointer-events: auto; }
                 iframe { width: 100%; height: 100%; border: none; }
+
+                /* 右下角触发区域（隐形热区，用于捕捉鼠标悬停） */
+                #controls-trigger-area {
+                    position: fixed;
+                    bottom: 0;
+                    right: 0;
+                    width: 250px;
+                    height: 120px;
+                    z-index: 10000;
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: flex-end;
+                    padding: 24px;
+                    box-sizing: border-box;
+                    gap: 12px;
+                }
+
+                /* 莫兰迪色系 + 磨砂玻璃质感按钮 */
+                .morandi-glass-btn {
+                    opacity: 0;
+                    visibility: hidden;
+                    transform: translateY(15px);
+                    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+                    
+                    /* 莫兰迪灰绿色调基础 */
+                    background: rgba(163, 172, 166, 0.25); 
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px); /* 兼容 Safari */
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    
+                    color: rgba(240, 240, 235, 0.9);
+                    border-radius: 8px;
+                    padding: 8px 18px;
+                    font-size: 14px;
+                    font-family: inherit;
+                    letter-spacing: 0.5px;
+                    cursor: pointer;
+                }
+
+                /* 鼠标悬停在热区时，按钮平滑升起并显现 */
+                #controls-trigger-area:hover .morandi-glass-btn {
+                    opacity: 1;
+                    visibility: visible;
+                    transform: translateY(0);
+                }
+
+                /* 按钮自身的 Hover 效果 */
+                .morandi-glass-btn:hover {
+                    background: rgba(163, 172, 166, 0.45);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    color: #fff;
+                }
             `;
             playbackWindow.document.head.appendChild(style);
         }.bind(this);
