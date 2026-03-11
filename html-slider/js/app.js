@@ -486,10 +486,11 @@ class App {
                     position: fixed;
                     bottom: 0;
                     right: 0;
-                    width: 250px;
-                    height: 120px;
+                    width: 120px;
+                    height: 250px;
                     z-index: 10000;
                     display: flex;
+                    flex-direction: column;
                     align-items: flex-end;
                     justify-content: flex-end;
                     padding: 24px;
